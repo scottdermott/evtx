@@ -1,5 +1,9 @@
 # EVTX parser
 
+## Linux Port
+Can be run with mono on Linux
+![alt text](https://i.ibb.co/pW48RtT/evtx-parser.png "Screenshot")
+
 This project contains both the core parsing engine as well as a command line front end that uses it.
 
 
