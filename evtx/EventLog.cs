@@ -11,9 +11,14 @@ using ServiceStack;
 using ServiceStack.Text;
 using YamlDotNet.Core;
 using YamlDotNet.Serialization;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
-using File = Alphaleonis.Win32.Filesystem.File;
-using Path = Alphaleonis.Win32.Filesystem.Path;
+//using Directory = Alphaleonis.Win32.Filesystem.Directory;
+//using File = Alphaleonis.Win32.Filesystem.File;
+//using Path = Alphaleonis.Win32.Filesystem.Path;
+
+using Directory = System.IO.Directory;
+using File = System.IO.File;
+using FileInfo = System.IO.FileInfo;
+using Path = System.IO.Path;
 
 //TODO rename project to EventLog?
 namespace evtx
@@ -113,20 +118,19 @@ namespace evtx
         {
             EventLogMaps = new Dictionary<string, EventLogMap>();
 
-            var f = new DirectoryEnumerationFilters();
+/*            var f = new DirectoryEnumerationFilters();
             f.InclusionFilter = fsei => fsei.Extension.ToUpperInvariant() == ".MAP";
 
             f.RecursionFilter = null; //entryInfo => !entryInfo.IsMountPoint && !entryInfo.IsSymbolicLink;
 
-            f.ErrorFilter = (errorCode, errorMessage, pathProcessed) => true;
+            f.ErrorFilter = (errorCode, errorMessage, pathProcessed) => true;*/
 
-            var dirEnumOptions =
+/*            var dirEnumOptions =
                 DirectoryEnumerationOptions.Files |
                 DirectoryEnumerationOptions.SkipReparsePoints | DirectoryEnumerationOptions.ContinueOnException |
-                DirectoryEnumerationOptions.BasicSearch;
+                DirectoryEnumerationOptions.BasicSearch;*/
 
-            var mapFiles =
-                Directory.EnumerateFileSystemEntries(mapPath, dirEnumOptions, f).ToList();
+            var mapFiles = Directory.EnumerateFileSystemEntries(mapPath, "*.map").ToList();
 
             var l = LogManager.GetLogger("LoadMaps");
 

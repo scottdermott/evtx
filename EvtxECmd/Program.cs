@@ -23,11 +23,18 @@ using RawCopy;
 using ServiceStack;
 using ServiceStack.Text;
 using CsvWriter = CsvHelper.CsvWriter;
-using Directory = Alphaleonis.Win32.Filesystem.Directory;
+//using Directory = Alphaleonis.Win32.Filesystem.Directory;
 using EventLog = evtx.EventLog;
-using File = Alphaleonis.Win32.Filesystem.File;
-using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
-using Path = Alphaleonis.Win32.Filesystem.Path;
+//using File = Alphaleonis.Win32.Filesystem.File;
+//using FileInfo = Alphaleonis.Win32.Filesystem.FileInfo;
+//using Path = Alphaleonis.Win32.Filesystem.Path;
+
+using Directory = System.IO.Directory;
+using File = System.IO.File;
+using FileInfo = System.IO.FileInfo;
+using Path = System.IO.Path;
+
+using System.Security.Cryptography;
 
 namespace EvtxECmd
 {
@@ -53,7 +60,8 @@ namespace EvtxECmd
         private static DateTimeOffset? _endDate;
         private static int _droppedEvents;
 
-        private static readonly string VssDir = @"C:\____vssMount";
+        //private static readonly string VssDir = @"C:\____vssMount";
+
 
         private static void Main(string[] args)
         {
@@ -163,11 +171,11 @@ namespace EvtxECmd
                     "The path where event maps are located. Defaults to 'Maps' folder where program was executed\r\n  ")
                 .SetDefault(Path.Combine(BaseDirectory, "Maps"));
 
-            _fluentCommandLineParser.Setup(arg => arg.Vss)
+            /*_fluentCommandLineParser.Setup(arg => arg.Vss)
                 .As("vss")
                 .WithDescription(
                     "Process all Volume Shadow Copies that exist on drive specified by -f or -d . Default is FALSE")
-                .SetDefault(false);
+                .SetDefault(false);*/
             _fluentCommandLineParser.Setup(arg => arg.Dedupe)
                 .As("dedupe")
                 .WithDescription(
@@ -190,14 +198,16 @@ namespace EvtxECmd
 
             var header =
                 $"EvtxECmd version {Assembly.GetExecutingAssembly().GetName().Version}" +
-                "\r\n\r\nAuthor: Eric Zimmerman (saericzimmerman@gmail.com)" +
-                "\r\nhttps://github.com/EricZimmerman/evtx";
+                "\n\nAuthor: Eric Zimmerman (saericzimmerman@gmail.com)" +
+                "\nhttps://github.com/EricZimmerman/evtx" +
+                "\nLinux Port : Scott Dermott (scottdermott@outlook.com)" +
+                "\nhttps://github.com/ScottDermott/evtx";
 
             var footer =
-                @"Examples: EvtxECmd.exe -f ""C:\Temp\Application.evtx"" --csv ""c:\temp\out"" --csvf MyOutputFile.csv" +
+                @"Examples: EvtxECmd -f ""/Temp/Application.evtx"" --csv ""/temp/out"" --csvf MyOutputFile.csv" +
                 "\r\n\t " +
-                @" EvtxECmd.exe -f ""C:\Temp\Application.evtx"" --csv ""c:\temp\out""" + "\r\n\t " +
-                @" EvtxECmd.exe -f ""C:\Temp\Application.evtx"" --json ""c:\temp\jsonout""" + "\r\n\t " +
+                @" EvtxECmd -f ""/Temp/Application.evtx"" --csv ""/temp/out""" + "\r\n\t " +
+                @" EvtxECmd -f ""/Temp/Application.evtx"" --json ""/temp/jsonout""" + "\r\n\t " +
                 "\r\n\t" +
                 "  Short options (single letter) are prefixed with a single dash. Long commands are prefixed with two dashes\r\n";
 
@@ -252,10 +262,10 @@ namespace EvtxECmd
 
            
 
-            if (IsAdministrator() == false)
+/*            if (IsAdministrator() == false)
             {
                 _logger.Fatal("Warning: Administrator privileges not found!\r\n");
-            }
+            }*/
 
             if (_fluentCommandLineParser.Object.Debug)
             {
@@ -269,11 +279,11 @@ namespace EvtxECmd
 
             LogManager.ReconfigExistingLoggers();
 
-            if (_fluentCommandLineParser.Object.Vss & (IsAdministrator() == false))
+           /* if (_fluentCommandLineParser.Object.Vss & (IsAdministrator() == false))
             {
                 _logger.Error("--vss is present, but administrator rights not found. Exiting\r\n");
                 return;
-            }
+            }*/
 
             var sw = new Stopwatch();
             sw.Start();
@@ -491,7 +501,7 @@ namespace EvtxECmd
             }
             else
             {
-                _logger.Debug($"Loading maps from '{Path.GetFullPath(_fluentCommandLineParser.Object.MapsDirectory)}'");
+                _logger.Info($"Loading maps from '{Path.GetFullPath(_fluentCommandLineParser.Object.MapsDirectory)}'");
                 var errors = EventLog.LoadMaps(Path.GetFullPath(_fluentCommandLineParser.Object.MapsDirectory));
                 
                 if (errors)
@@ -532,7 +542,7 @@ namespace EvtxECmd
                 }
             }
 
-            if (_fluentCommandLineParser.Object.Vss)
+            /*if (_fluentCommandLineParser.Object.Vss)
             {
                 string driveLetter;
                 if (_fluentCommandLineParser.Object.File.IsEmpty() == false)
@@ -549,7 +559,7 @@ namespace EvtxECmd
 
                 Helper.MountVss(driveLetter,VssDir);
                 Console.WriteLine();
-            }
+            }*/
 
             EventLog.TimeDiscrepancyThreshold = _fluentCommandLineParser.Object.TimeDiscrepancyThreshold;
 
@@ -572,7 +582,7 @@ namespace EvtxECmd
 
                 ProcessFile(Path.GetFullPath(_fluentCommandLineParser.Object.File));
 
-                if (_fluentCommandLineParser.Object.Vss)
+                /*if (_fluentCommandLineParser.Object.Vss)
                 {
                     var vssDirs = Directory.GetDirectories(VssDir);
 
@@ -587,27 +597,26 @@ namespace EvtxECmd
                             ProcessFile(newPath);
                         }
                     }
-                }
+                }*/
             }
             else
             {
                 _logger.Info($"Looking for event log files in '{_fluentCommandLineParser.Object.Directory}'");
                 _logger.Info("");
 
-                var f = new DirectoryEnumerationFilters
+/*                var f = new DirectoryEnumerationFilters
                 {
                     InclusionFilter = fsei => fsei.Extension.ToUpperInvariant() == ".EVTX",
                     RecursionFilter = entryInfo => !entryInfo.IsMountPoint && !entryInfo.IsSymbolicLink,
                     ErrorFilter = (errorCode, errorMessage, pathProcessed) => true
-                };
+                };*/
 
-                var dirEnumOptions =
+/*                var dirEnumOptions =
                     DirectoryEnumerationOptions.Files | DirectoryEnumerationOptions.Recursive |
                     DirectoryEnumerationOptions.SkipReparsePoints | DirectoryEnumerationOptions.ContinueOnException |
-                    DirectoryEnumerationOptions.BasicSearch;
+                    DirectoryEnumerationOptions.BasicSearch;*/
 
-                var files2 =
-                    Directory.EnumerateFileSystemEntries(Path.GetFullPath(_fluentCommandLineParser.Object.Directory), dirEnumOptions, f);
+                var files2 = Directory.EnumerateFileSystemEntries(Path.GetFullPath(_fluentCommandLineParser.Object.Directory), "*.evtx");
 
                 if (_swXml == null && _swJson == null && _swCsv == null)
                 {
@@ -621,7 +630,7 @@ namespace EvtxECmd
                     ProcessFile(file);
                 }
 
-                if (_fluentCommandLineParser.Object.Vss)
+                /*if (_fluentCommandLineParser.Object.Vss)
                 {
                     var vssDirs = Directory.GetDirectories(VssDir);
 
@@ -644,7 +653,7 @@ namespace EvtxECmd
                         }                        
                     }
 
-                }
+                }*/
             }
 
             _swCsv?.Flush();
@@ -680,7 +689,7 @@ namespace EvtxECmd
                 _logger.Info("");
             }
 
-            if (_fluentCommandLineParser.Object.Vss)
+            /*if (_fluentCommandLineParser.Object.Vss)
             {
                 if (Directory.Exists(VssDir))
                 {
@@ -688,12 +697,22 @@ namespace EvtxECmd
                     {
                         Directory.Delete(directory);
                     }
-                    Directory.Delete(VssDir,true,true);
+                    Directory.Delete(VssDir,true);
                 }
-            }
+            }*/
         }
 
         private static readonly HashSet<string> _seenHashes = new HashSet<string>();
+        private static string checkMD5(string filename)
+        {
+            using (var md5 = MD5.Create())
+            {
+                using (var stream = File.OpenRead(filename))
+                {
+                    return Encoding.Default.GetString(md5.ComputeHash(stream));
+                }
+            }
+        }
 
         private static void UpdateFromRepo()
         {
@@ -752,19 +771,17 @@ namespace EvtxECmd
                 else
                 {
                     //current destination file exists, so compare to new
-                    var fiNew = new FileInfo(newMap);
-                    var fi = new FileInfo(dest);
+                    //var fiNew = new FileInfo(newMap);
+                    //var fi = new FileInfo(dest);
 
-                    if (fiNew.GetHash(HashType.SHA1) != fi.GetHash(HashType.SHA1))
+                    if (checkMD5(newMap) != checkMD5(dest))
                     {
                         //updated file
-                        updatedlocalMaps.Add(mName);
-
-                      
+                        updatedlocalMaps.Add(mName);                      
                     }
                 }
 
-                File.Copy(newMap, dest, CopyOptions.None);
+                File.Copy(newMap, dest);
             }
 
             
@@ -816,14 +833,14 @@ namespace EvtxECmd
                 return;
             }
 
-            if (file.StartsWith(VssDir))
+           /* if (file.StartsWith(VssDir))
             {
                 _logger.Warn($"\r\nProcessing 'VSS{file.Replace($"{VssDir}\\", "")}'");
             }
             else
-            {
-                _logger.Warn($"\r\nProcessing '{file}'...");
-            }
+            {*/
+            _logger.Warn($"\r\nProcessing '{file}'...");
+            /*}*/
 
             Stream fileS;
 
@@ -834,12 +851,13 @@ namespace EvtxECmd
             catch (Exception ex)
             {
                 //file is in use
-                
-                if (Helper.IsAdministrator() == false)
+
+                /* if (Helper.IsAdministrator() == false)
                 {
                     _logger.Fatal("\r\nAdministrator privileges not found! Exiting!!\r\n");
                     Environment.Exit(0);
-                }
+                }*/
+                _logger.Warn($"\r\n'{ex}");
 
                 if (file.StartsWith("\\\\"))
                 {
@@ -931,14 +949,14 @@ namespace EvtxECmd
                         }
                     }
 
-                    if (file.StartsWith(VssDir))
+                    /*if (file.StartsWith(VssDir))
                     {
                         eventRecord.SourceFile = $"VSS{file.Replace($"{VssDir}\\", "")}";
                     }
                     else
-                    {
-                        eventRecord.SourceFile = file;    
-                    }
+                    {*/
+                    eventRecord.SourceFile = file;    
+                    /*}*/
                     
                     try
                     {
@@ -991,11 +1009,10 @@ namespace EvtxECmd
                 if (evt.ErrorRecords.Count > 0)
                 {
                     var fn = file;
-                    if (file.StartsWith(VssDir))
+                    /*if (file.StartsWith(VssDir))
                     {
                         fn=$"VSS{file.Replace($"{VssDir}\\", "")}";
-                    }
-
+                    }*/
                     _errorFiles.Add(fn, evt.ErrorRecords.Count);
                 }
 
@@ -1046,10 +1063,10 @@ namespace EvtxECmd
             catch (Exception e)
             {
                 var fn = file;
-                if (file.StartsWith(VssDir))
+                /*if (file.StartsWith(VssDir))
                 {
                     fn=$"VSS{file.Replace($"{VssDir}\\", "")}";
-                }
+                }*/
 
                 if (e.Message.Contains("Invalid signature! Expected 'ElfFile"))
                 {
@@ -1071,12 +1088,12 @@ namespace EvtxECmd
             return JsonConvert.SerializeXmlNode(xdo);
         }
 
-        public static bool IsAdministrator()
+/*        public static bool IsAdministrator()
         {
             var identity = WindowsIdentity.GetCurrent();
             var principal = new WindowsPrincipal(identity);
             return principal.IsInRole(WindowsBuiltInRole.Administrator);
-        }
+        }*/
 
         private static void SetupNLog()
         {
